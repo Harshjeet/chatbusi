@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, send_file
 from app.services.gemini_service import generate_gemini_response, generate_multi_step_response
 from app.utils.preprocessor import clean_query, extract_entities, detect_query_type
 from app.services.prompt_engineering import generate_single_prompt, generate_multi_step_prompts
-from app.services.reports import generate_pdf_report, generate_csv_report
+from app.services.reports import generate_pdf_report, generate_csv_report, extract_table_from_response
 from app.services.business_logic.workflow import execute_workflow
 
 # Importing specific business function handlers
@@ -85,7 +85,7 @@ def handle_query():
 @query_bp.route('/download/pdf', methods=['POST'])
 def download_pdf():
     """
-    Download AI insights as a PDF report.
+    Download the AI insights as a properly formatted PDF report.
     """
     try:
         data = request.get_json()
@@ -95,20 +95,23 @@ def download_pdf():
             return jsonify({"error": "No response provided"}), 400
 
         output_path = "output/report.pdf"
+        
+        # Ensure the output directory exists
         if not os.path.exists("output"):
             os.makedirs("output")
 
+        # Generate the formatted PDF
         generate_pdf_report(response, output_path)
+        
         return send_file(output_path, as_attachment=True)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @query_bp.route('/download/csv', methods=['POST'])
 def download_csv():
     """
-    Download AI insights as a CSV report.
+    Download AI insights table as a CSV report if table exists.
     """
     try:
         data = request.get_json()
@@ -117,11 +120,16 @@ def download_csv():
         if not response:
             return jsonify({"error": "No response provided"}), 400
 
+        table_df = extract_table_from_response(response)
+
+        if table_df is None:
+            return jsonify({"error": "No table found in response"}), 400
+
         output_path = "output/report.csv"
         if not os.path.exists("output"):
             os.makedirs("output")
 
-        generate_csv_report(response, output_path)
+        table_df.to_csv(output_path, index=False)
         return send_file(output_path, as_attachment=True)
 
     except Exception as e:

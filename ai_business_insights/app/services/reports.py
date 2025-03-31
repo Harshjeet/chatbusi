@@ -2,51 +2,89 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 import pandas as pd
+import re
+from xhtml2pdf import pisa
+from markdown2 import markdown
 import os
 
-def format_response_for_report(response):
-    sections = response.split("\n\n")
-
-    report_content = {
-        "Summary": sections[0] if len(sections) > 0 else "No summary available.",
-        "Detailed Insights": sections[1] if len(sections) > 1 else "No detailed insights.",
-        "Recommendations": sections[2] if len(sections) > 2 else "No recommendations."
-    }
-
-    return report_content
-
 def generate_pdf_report(response, output_path="report.pdf"):
-   
-    report_content = format_response_for_report(response)
+    """
+    Generate a PDF report with properly formatted markdown content.
+    """
+    # Convert Markdown to HTML
+    html_content = markdown(response)
 
-    
-    doc = SimpleDocTemplate(output_path, pagesize=LETTER)
-    styles = getSampleStyleSheet()
-    content = []
+    # Add basic styling for better formatting
+    html_template = f"""
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+            }}
+            h1, h2, h3 {{
+                color: #333;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+            }}
+            table, th, td {{
+                border: 1px solid #ccc;
+            }}
+            th, td {{
+                padding: 10px;
+                text-align: left;
+            }}
+            th {{
+                background-color: #f2f2f2;
+            }}
+            p {{
+                margin: 10px 0;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Business Insights Report</h1>
+        {html_content}
+    </body>
+    </html>
+    """
 
-   
-    content.append(Paragraph("Business Insights Report", styles['Title']))
-    content.append(Spacer(1, 12))
+    # Generate PDF
+    with open(output_path, "wb") as pdf_file:
+        pisa_status = pisa.CreatePDF(html_template, dest=pdf_file)
 
-    
-    for section, text in report_content.items():
-        content.append(Paragraph(f"<b>{section}</b>", styles['Heading2']))
-        content.append(Spacer(1, 6))
-        content.append(Paragraph(text, styles['BodyText']))
-        content.append(Spacer(1, 12))
+    if not pisa_status.err:
+        return output_path
+    else:
+        raise Exception("Failed to generate PDF.")
+def extract_table_from_response(response):
+    """
+    Extracts a table from the AI-generated response using regex.
+    """
+    table_pattern = r'\|(.+?)\|\n(\|[-:]+\|)+\n((?:\|.*?\|\n?)+)'
+    match = re.search(table_pattern, response, re.DOTALL)
 
-    doc.build(content)
-    return output_path
+    if match:
+        headers = [h.strip() for h in match.group(1).split('|') if h.strip()]
+        rows = [row.split('|')[1:-1] for row in match.group(3).split('\n') if row.strip()]
+
+        df = pd.DataFrame(rows, columns=headers)
+        return df
+    return None
+
 
 def generate_csv_report(response, output_path="report.csv"):
     """
-    Generate a CSV report from the AI-generated insights.
+    Generate a CSV report if table is found in the response.
     """
-    report_content = format_response_for_report(response)
+    df = extract_table_from_response(response)
 
-    # Create DataFrame
-    df = pd.DataFrame(list(report_content.items()), columns=["Section", "Content"])
-
-    # Save as CSV
-    df.to_csv(output_path, index=False)
-    return output_path
+    if df is not None:
+        df.to_csv(output_path, index=False)
+        return output_path
+    else:
+        return None

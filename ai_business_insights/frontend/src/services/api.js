@@ -17,9 +17,19 @@ export const sendQuery = async (query) => {
 export const downloadPdf = async (response) => {
   try {
     const res = await axios.post(`${API_URL}/download/pdf`, { response }, {
-      responseType: 'blob',
+      responseType: 'blob',   // Handle binary file response
     });
-    return res.data;
+
+    // Create a URL for the blob and trigger download
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'report.pdf');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
   } catch (error) {
     console.error('Error downloading PDF:', error);
     throw error;
@@ -30,9 +40,19 @@ export const downloadPdf = async (response) => {
 export const downloadCsv = async (response) => {
   try {
     const res = await axios.post(`${API_URL}/download/csv`, { response }, {
-      responseType: 'blob',
+      responseType: 'blob',   // Handle binary file response
     });
-    return res.data;
+
+    // Create a URL for the blob and trigger download
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'report.csv');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
   } catch (error) {
     console.error('Error downloading CSV:', error);
     throw error;
