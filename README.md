@@ -26,9 +26,10 @@ Navigate to the backend directory (`app`) and install the required Python packag
 
 ```bash
 cd ai_business_insight
-cd app
 pip install -r requirements.txt
 ```
+### ADD the .env file
+Add `.env` with `GEMINI_API_KEY='your-api-key`
 
 #### Frontend
 Navigate to the frontend directory and install the required npm packages.
